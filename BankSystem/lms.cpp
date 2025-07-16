@@ -3,20 +3,25 @@
 #include <iostream>
 #include<bits/stdc++.h>
 using namespace std;
+# define ll long long
 template <typename T>
 auto iff(bool condition , T a, T b){
     return condition?a:b;
 }//this is a tempelate for basic if and else
+unordered_set<ll>usedAccNos;
 class Account {
 private:
     string name;
-    int acc_no;
+    ll acc_no;
     float balance;
+    string email;
 public:
-    Account(string in_name, int in_acc_no, float in_balance) {
+    Account(string in_name, string in_email,ll in_acc_no, float in_balance) {
         name = in_name;
         acc_no = in_acc_no;
         balance = in_balance;
+        email=in_email;
+        
     }
     //depositing money
     void deposit(float amount){
@@ -31,12 +36,30 @@ public:
         string disp=iff(amount>0&&balance!=temp," Rs." + to_string(amount) + " withdrawn successfully.",string(" Invalid withdraw amount or insufficient balance!"));
         cout<<disp<<endl;
     }
+    //generating random 16 digit account number;
+    static ll generateAccNo(){
+        random_device rd;
+        mt19937_64 gen(rd());
+        uniform_int_distribution<ll>dis(1000000000000000, 9999999999999999);
+        long long newNum;
+        do{
+            newNum=dis(gen);
+        }while(usedAccNos.find(newNum)!=usedAccNos.end());
+        usedAccNos.insert(newNum);
+        return newNum;
+    }
+    //email validation using regex;
+    static bool isValidEmail(const string& email) {
+        const regex pattern(R"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})");
+        return regex_match(email, pattern);
+    }
     void Account_info(){
         cout<<" Account Holder: "<<name<<endl;
         cout<<" Account Number: "<<acc_no<<endl;
         cout<<" Balance: "<<balance<<endl;
+        cout<<" Email: "<<email<<endl;
     }
-    int getAccountNumber() {
+    ll getAccountNumber() {
         return acc_no;
     }
 };
@@ -59,18 +82,42 @@ int main(){
                 string name;
                 cin.ignore();   // to ignore the newline character left in the input buffer
                 getline(cin, name);
-                cout<<" Enter your Account Number: ";
-                int acc_no;
-                cin>>acc_no;
+
+                string email;
+                while (true){//loop to run till valid email is provided
+                    cout<<" Enter your Email Address: ";
+                    getline(cin,email);
+                    if(Account::isValidEmail(email))break;
+                    cout << " Invalid email format! Please try again.\n";
+                }
+                long long acc_no = Account::generateAccNo();
+
                 cout<<" To open an Account you must have an initial balance of 500 atleast \n Enter your initial balance: ";
+
                 double in_balance;
                 cin>>in_balance;
-                string mssg=iff(in_balance<500," Insufficient amount to open the account","Account successfully created!");
-                accounts.push_back(Account(name,acc_no,in_balance));
-                cout<<mssg<<endl;
-                break;}
+                if (in_balance < 500) {
+                    cout << " Insufficient amount to open the account\n";
+                } else {
+                    accounts.push_back(Account(name, email, acc_no, in_balance));
+                    // New formatted message display
+                    cout << "|----------------------------------------------|\n";
+                    cout << "|      ACCOUNT CREATED SUCCESSFULLY!           |\n";
+                    cout << "|                                              |\n";
+                    cout << "|   Account Holder: " << left << setw(27) << name << "|\n";
+                    cout << "|   Email Address:  " << left << setw(27) << email << "|\n";
+                    cout << "|   Account Number: " << left << setw(27) << acc_no << "|\n";
+                    cout << "|   Initial Balance: Rs." << left << setw(23) << fixed << setprecision(2) << in_balance << "|\n";
+                    cout << "|                                              |\n";
+                    cout << "|   * Please remember your Account Number      |\n";
+                    cout << "|     to access your account later.            |\n";
+                    cout << "|----------------------------------------------|\n";
+                }
+                break;
+            }
+                
             case 2:
-                {int account_no;
+                {ll account_no;
                 double amount;
                 cout<<" Enter your Account Number: ";
                 cin>>account_no;
@@ -90,7 +137,7 @@ int main(){
                 break;
             }
             case 3:
-                {int accNum;
+                {ll accNum;
                 double amount;
                 cout << " Enter Account Number: ";
                 cin >> accNum;
@@ -111,7 +158,7 @@ int main(){
                 }
                 break;}
             case 4:
-                {int accNum;
+                {ll accNum;
                 cout << " Enter Account Number: ";
                 cin >> accNum;
                 bool found = false;
