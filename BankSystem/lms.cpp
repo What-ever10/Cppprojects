@@ -8,13 +8,43 @@ template <typename T>
 auto iff(bool condition , T a, T b){
     return condition?a:b;
 }//this is a tempelate for basic if and else
-unordered_set<ll>usedAccNos;
-class Account {
+
+class Transaction{
 private:
+    string type;
+    double amount;
+    string timestamp;
+    double newBalance;
+public://using the initialiser list for cleaner and more efficient class initialisation
+    Transaction(string t, double a, double nb) : 
+        type(t), amount(a), newBalance(nb) {
+            time_t now = time(0);//get the current system time
+            timestamp = ctime(&now);//convert it into readable form
+            timestamp.pop_back(); // Remove newline
+        }
+        //getter functions
+        string getType() const { return type; }
+        double getAmount() const { return amount; }
+        string getTimestamp() const { return timestamp; }
+        double getNewBalance() const { return newBalance; }
+        //displaying the transaction
+        void display() const {
+            cout << "│ " << left << setw(12) << type 
+                << "│ " << setw(10) << amount 
+                << "│ " << setw(25) << timestamp
+                << "│ " << setw(10) << newBalance << "│\n";
+    }   
+};
+
+unordered_set<ll>usedAccNos;
+
+class Account {
+protected:
     string name;
     ll acc_no;
     float balance;
     string email;
+    vector<Transaction>transactions;
 public:
     Account(string in_name, string in_email,ll in_acc_no, float in_balance) {
         name = in_name;
@@ -23,17 +53,29 @@ public:
         email=in_email;
         
     }
+    virtual ~Account()=default; //virtual destructor for polymorphism
+
+    virtual void applyMonthlyChanges(){}//virtual method to be used in the derived class (polymorphism)
+
+    virtual string getType() const { return "Generic"; }//virtual method to be used in the derived class (polymorphism)
+
     //depositing money
     void deposit(float amount){
         balance=iff(amount>0,balance+amount,balance);
+        if(amount > 0) {
+            addTransaction("Deposit", amount);
+        }
         string disp = iff(amount > 0, " Rs." + to_string(amount) + " deposited successfully.", string(" Invalid deposit amount!"));
         cout << disp << endl;
     }
     //withdrawing moneys
-    void withdraw(float amount){
+    virtual void withdraw(float amount){
         int temp=balance;
         balance=iff(amount>0&&amount<=balance,balance-amount,balance);
         string disp=iff(amount>0&&balance!=temp," Rs." + to_string(amount) + " withdrawn successfully.",string(" Invalid withdraw amount or insufficient balance!"));
+        if(amount > 0 && amount <= balance) {
+            addTransaction("Withdrawal", -amount); // Negative for withdrawals
+        }
         cout<<disp<<endl;
     }
     //generating random 16 digit account number;
@@ -49,7 +91,7 @@ public:
         return newNum;
     }
     //email validation using regex;
-    static bool isValidEmail(const string& email) {
+    static bool isValidEmail( string& email) {
         const regex pattern(R"([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})");
         return regex_match(email, pattern);
     }
@@ -59,13 +101,111 @@ public:
         cout<<" Balance: "<<balance<<endl;
         cout<<" Email: "<<email<<endl;
     }
+    // function to store the transaction details
+    void addTransaction(string type, double amount) {
+        Transaction temp(type,amount,balance);
+        transactions.push_back(temp);//could have use the vector.emplace_back() function to construct in place
+    }
     ll getAccountNumber() {
         return acc_no;
     }
+    //display table for the transaction history
+    void showTransactionHistory()  {
+        // Header (ASCII version)
+        cout << "TRANSACTION HISTORY\n";
+        cout << "-----------------------------------------------------------------\n";
+        cout << left 
+            << setw(12) << "Type" 
+            << setw(10) << "Amount" 
+            << setw(25) << "Date/Time" 
+            << setw(10) << "Balance" << "\n";
+        cout << "-----------------------------------------------------------------\n";
+
+        // Data rows (unchanged from original display())
+        for(const auto& t : transactions) {
+            cout << left 
+                << setw(12) << t.getType() 
+                << setw(10) << t.getAmount() 
+                << setw(25) << t.getTimestamp()
+                << setw(10) << t.getNewBalance() << "\n";
+        }
+        cout << "-----------------------------------------------------------------\n";
+    }
 };
 
+class SavingsAccount : public Account {
+private:
+    double interestRate; 
+    
+public:
+    
+    SavingsAccount(string name, string email, long long acc_no, float balance, double rate) 
+        : Account(name, email, acc_no, balance),
+          interestRate(rate) {} 
+    
+    
+    void applyMonthlyChanges() override {
+        double interest = balance * interestRate / 12; 
+        balance += interest; 
+        addTransaction("Interest", interest);
+    }
+    
+
+    string getType() const override { return "Savings"; }
+};
+
+class CheckingAccount : public Account {
+private:
+    int freeTransactions; 
+    const double TRANSACTION_FEE = 10.0; 
+    
+public:
+   
+    CheckingAccount(string name, string email, long long acc_no, float balance) 
+        : Account(name, email, acc_no, balance), 
+          freeTransactions(3) {} 
+    
+    
+    void withdraw(float amount) override {
+        Account::withdraw(amount); 
+        
+       
+        if(freeTransactions <= 0) {
+            balance -= TRANSACTION_FEE;
+            addTransaction("Fee", -TRANSACTION_FEE);
+        }
+        freeTransactions--;
+    }
+    
+
+    string getType() const override { return "Checking"; }
+};
+
+class BusinessAccount : public Account {
+private:
+    string companyName; 
+    double annualFee;   
+    
+public:
+    
+    BusinessAccount(string name, string email, long long acc_no, float balance, double fee) 
+        : Account(name, email, acc_no, balance),
+          annualFee(fee) {
+        companyName = name; 
+    }
+    
+  
+    void applyMonthlyChanges() override {
+        double monthlyFee = annualFee / 12;
+        balance -= monthlyFee;
+        addTransaction("Monthly Fee", -monthlyFee);
+    }
+    
+    
+    string getType() const override { return "Business"; }
+};
 int main(){
-    vector<Account>accounts;
+    vector<Account*>accounts;
     int choice;
     while(true){
         cout << "                        Your very own Bank Management system\n";
@@ -73,7 +213,8 @@ int main(){
         cout << " 2. Deposit Money\n";
         cout << " 3. Withdraw Money\n";
         cout << " 4. Display Account Details\n";
-        cout << " 5. Exit\n";
+        cout << " 5. Show Transaction History\n";
+        cout << " 6. Exit\n";
         cout << " Enter your choice: ";
         cin >> choice;
         switch(choice){//USING SWITCH STATEMENT
@@ -99,8 +240,28 @@ int main(){
                 if (in_balance < 500) {
                     cout << " Insufficient amount to open the account\n";
                 } else {
-                    accounts.push_back(Account(name, email, acc_no, in_balance));
-                    // New formatted message display
+                    
+                    cout << "Select Account Type:\n";
+                    cout << "1. Savings\n2. Checking\n3. Business\n";
+                    int typeChoice;
+                    cin >> typeChoice;
+
+                    
+                    Account* newAccount = nullptr;
+                    switch(typeChoice) {
+                        case 1: 
+                            newAccount = new SavingsAccount(name, email, acc_no, in_balance, 0.03);
+                            break;
+                        case 2:
+                            newAccount = new CheckingAccount(name, email, acc_no, in_balance);
+                            break;
+                        case 3:
+                            newAccount = new BusinessAccount(name, email, acc_no, in_balance, 1000);
+                            break;
+                    }
+
+                    accounts.push_back(newAccount); 
+                    
                     cout << "|----------------------------------------------|\n";
                     cout << "|      ACCOUNT CREATED SUCCESSFULLY!           |\n";
                     cout << "|                                              |\n";
@@ -123,10 +284,10 @@ int main(){
                 cin>>account_no;
                 bool found;
                 for(auto  &acc:accounts){
-                    if(acc.getAccountNumber()==account_no){
+                    if(acc->getAccountNumber()==account_no){
                         cout<<" Enter the amount to be deposited:";
                         cin>>amount;
-                        acc.deposit(amount);
+                        acc->deposit(amount);
                         found=true;
                         break;
                     }
@@ -144,10 +305,10 @@ int main(){
                 bool found = false;
 
                 for (auto &acc : accounts) {
-                    if (acc.getAccountNumber() == accNum) {
+                    if (acc->getAccountNumber() == accNum) {
                         cout << " Enter Withdrawal Amount: ";
                         cin >> amount;
-                        acc.withdraw(amount);
+                        acc->withdraw(amount);
                         found = true;
                         break;
                     }
@@ -164,8 +325,8 @@ int main(){
                 bool found = false;
 
                 for (auto &acc : accounts) {
-                    if (acc.getAccountNumber() == accNum) {
-                        acc.Account_info();
+                    if (acc->getAccountNumber() == accNum) {
+                        acc->Account_info();
                         found = true;
                         break;
                     }
@@ -176,6 +337,22 @@ int main(){
                 }
                 break;}
             case 5:
+                {
+                    cout<<"Enter your Account Number";
+                    ll acc_no;
+                    cin>>acc_no;
+                    bool found=false;
+                    for(auto & acc:accounts){
+                        if(acc->getAccountNumber()==acc_no){
+                            acc->showTransactionHistory();
+                            found=true;
+                            break;
+                        }
+                    }
+                    if(!found)cout<<" Account not found!\n";
+                    break;
+                }
+            case 6:
                 cout << " Exiting the system. Thank you!\n";
                 break;
             default:
